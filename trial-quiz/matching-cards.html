@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Matching Challenge</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url(IMG/teachers-dashboard-bg.png);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .level-info {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .difficulty-info {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: #7f8c8d;
+        }
+        
+        .timer {
+            font-size: 1.2em;
+            background-color: #333;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+        }
+        
+        .game-board {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .card {
+            width: 100%;
+            height: 100%;
+            aspect-ratio: 1/1;
+            background-color: #3498db;
+            color: white;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform-style: preserve-3d;
+        }
+        
+        .card:hover {
+            transform: scale(1.05);
+        }
+        
+        .card.flipped {
+            background-color: #f1c40f;
+            color: #333;
+        }
+        
+        .card.hidden {
+            background-color: #3498db;
+            color: transparent;
+        }
+        
+        .card.matched {
+            background-color: #2ecc71;
+            cursor: default;
+        }
+        
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .lightbox-content {
+            background-color: #f0f0f0;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .lightbox h2 {
+            color: #2ecc71;
+            margin-bottom: 15px;
+        }
+        
+        .lightbox p {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                font-size: 1.5em;
+            }
+            
+            .level-info {
+                font-size: 1.2em;
+            }
+            
+            .difficulty-info {
+                font-size: 1em;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .controls button {
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .card {
+                font-size: 1.2em;
+            }
+            
+            .lightbox-content {
+                padding: 20px;
+                max-width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="game-container">
+            <h1 class="text-center mb-3">Memory Matching Challenge</h1>
+            <div class="level-info text-center">Level: <span id="level">Easy</span></div>
+            <div class="difficulty-info text-center" id="difficultyInfo">All cards remain face-up. Just click matching pairs!</div>
+            
+            <div class="d-flex justify-content-center mb-3">
+                <div class="timer">Time: <span id="time">0</span>s</div>
+            </div>
+            
+            <div class="game-board" id="gameBoard"></div>
+            
+            <div class="controls d-flex justify-content-center gap-3 mb-4">
+                <button id="startBtn" class="btn btn-success">Start Game</button>
+                <button id="resetBtn" class="btn btn-danger">Reset Game</button>
+                <button id="nextLevelBtn" class="btn btn-primary" style="display: none;">Next Level</button>
+                <button class="btn btn-secondary" id="togoback" onclick="goBack()">Back</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="levelCompleteLightbox" class="lightbox">
+        <div class="lightbox-content">
+            <h2>Level Complete! 🎉</h2>
+            <p id="completion-message">You completed the level in 0 seconds!</p>
+            <div class="d-flex justify-content-center gap-3">
+                <button id="continue-btn" class="btn btn-success">Continue to Next Level</button>
+                <button id="restart-btn" class="btn btn-outline-danger">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Confetti library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Game elements
+            const gameBoard = document.getElementById('gameBoard');
+            const timeDisplay = document.getElementById('time');
+            const levelDisplay = document.getElementById('level');
+            const difficultyInfo = document.getElementById('difficultyInfo');
+            const startBtn = document.getElementById('startBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const nextLevelBtn = document.getElementById('nextLevelBtn');
+            const levelCompleteLightbox = document.getElementById('levelCompleteLightbox');
+            const completionMessage = document.getElementById('completion-message');
+            const continueBtn = document.getElementById('continue-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            
+            // Game state
+            let cards = [];
+            let selectedCards = [];
+            let gameTimer;
+            let seconds = 0;
+            let memorizationTimer;
+            let canFlip = false;
+            let gameActive = false;
+            let currentLevel = 1;
+            
+            // Game settings for each level
+            const levelSettings = {
+                1: { // Easy
+                    name: "Easy",
+                    description: "All cards remain face-up. Just click matching pairs!",
+                    pairs: 8,
+                    cols: 4,
+                    memorizationTime: 0,
+                    alwaysFaceUp: true
+                },
+                2: { // Medium
+                    name: "Medium",
+                    description: "Memorize card positions in 5 seconds, then find pairs!",
+                    pairs: 12,
+                    cols: 6,
+                    memorizationTime: 5000,
+                    alwaysFaceUp: false
+                },
+                3: { // Hard
+                    name: "Hard",
+                    description: "All cards start face-down. Find pairs with no memorization time!",
+                    pairs: 16,
+                    cols: 8,
+                    memorizationTime: 0,
+                    alwaysFaceUp: false
+                }
+            };
+
+            document.getElementById('togoback').addEventListener('click', function() {
+                window.location.href = 'dashboard_stud.php'; 
+            });
+            
+            // Initialize the game with current level settings
+            function initGame() {
+                const settings = levelSettings[currentLevel];
+                
+                // Set up game board
+                gameBoard.style.gridTemplateColumns = `repeat(${settings.cols}, minmax(50px, 100px))`;
+                difficultyInfo.textContent = settings.description;
+                
+                // Get emojis for current level
+                const emojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔'];
+                const selectedEmojis = emojis.slice(0, settings.pairs);
+                
+                // Create pairs of cards
+                let gameCards = [];
+                selectedEmojis.forEach(emoji => {
+                    gameCards.push(emoji);
+                    gameCards.push(emoji);
+                });
+                
+                // Shuffle the cards
+                gameCards = shuffleArray(gameCards);
+                
+                // Clear the game board
+                gameBoard.innerHTML = '';
+                cards = [];
+                selectedCards = [];
+                seconds = 0;
+                timeDisplay.textContent = seconds;
+                clearInterval(gameTimer);
+                clearTimeout(memorizationTimer);
+                canFlip = settings.alwaysFaceUp;
+                gameActive = settings.alwaysFaceUp; // Auto-active in easy mode
+                startBtn.disabled = settings.alwaysFaceUp;
+                nextLevelBtn.style.display = 'none';
+                
+                // Update level display
+                levelDisplay.textContent = settings.name;
+                
+                // Create card elements
+                gameCards.forEach((emoji, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.dataset.index = index;
+                    
+                    if (settings.alwaysFaceUp) {
+                        // Easy mode - always show cards
+                        card.textContent = emoji;
+                        card.classList.add('flipped');
+                    } else if (currentLevel === 2) {
+                        // Medium mode - show cards during memorization
+                        card.textContent = emoji;
+                        card.classList.add('flipped');
+                    } else {
+                        // Hard mode - cards start face down
+                        card.classList.add('hidden');
+                    }
+                    
+                    card.addEventListener('click', () => handleCardClick(index));
+                    
+                    gameBoard.appendChild(card);
+                    cards.push({
+                        element: card,
+                        emoji: emoji,
+                        isFlipped: settings.alwaysFaceUp || (currentLevel === 2),
+                        isMatched: false,
+                        index: index
+                    });
+                });
+                
+                // Auto-start timer in easy mode
+                if (settings.alwaysFaceUp) {
+                    startTimer();
+                }
+            }
+            
+            // Handle card clicks
+            function handleCardClick(index) {
+                if (!canFlip || !gameActive) return;
+                
+                const card = cards[index];
+                
+                // Don't allow clicking already matched or selected cards
+                if (card.isMatched || selectedCards.includes(card)) return;
+                
+                // Flip the card
+                card.isFlipped = true;
+                card.element.textContent = card.emoji;
+                card.element.classList.remove('hidden');
+                card.element.classList.add('flipped');
+                
+                // Add to selected cards
+                selectedCards.push(card);
+                
+                // Check for a match when two cards are selected
+                if (selectedCards.length === 2) {
+                    canFlip = false;
+                    checkForMatch();
+                }
+            }
+            
+            // Start the game (only needed for medium level)
+            function startGame() {
+                const settings = levelSettings[currentLevel];
+                
+                if (settings.memorizationTime > 0) {
+                    // Medium mode - hide cards after memorization period
+                    memorizationTimer = setTimeout(() => {
+                        cards.forEach(card => {
+                            if (!card.isMatched) {
+                                card.isFlipped = false;
+                                card.element.classList.add('hidden');
+                                card.element.classList.remove('flipped');
+                                card.element.textContent = '';
+                            }
+                        });
+                        
+                        canFlip = true;
+                        startTimer();
+                    }, settings.memorizationTime);
+                } else if (currentLevel === 3) {
+                    // Hard mode - start immediately
+                    canFlip = true;
+                    startTimer();
+                }
+                
+                startBtn.disabled = true;
+                gameActive = true;
+            }
+            
+            // Start the game timer
+            function startTimer() {
+                clearInterval(gameTimer);
+                seconds = 0;
+                timeDisplay.textContent = seconds;
+                gameTimer = setInterval(() => {
+                    seconds++;
+                    timeDisplay.textContent = seconds;
+                }, 1000);
+            }
+            
+            // Check if the two selected cards match
+            function checkForMatch() {
+                const [card1, card2] = selectedCards;
+                
+                if (card1.emoji === card2.emoji) {
+                    // Match found
+                    card1.isMatched = true;
+                    card2.isMatched = true;
+                    card1.element.classList.add('matched');
+                    card2.element.classList.add('matched');
+                    
+                    selectedCards = [];
+                    canFlip = true;
+                    
+                    // Check if all cards are matched
+                    if (cards.every(card => card.isMatched)) {
+                        gameActive = false;
+                        clearInterval(gameTimer);
+                        levelComplete();
+                    }
+                } else {
+                    // No match - flip cards back after a delay
+                    setTimeout(() => {
+                        card1.isFlipped = false;
+                        card2.isFlipped = false;
+                        card1.element.classList.add('hidden');
+                        card2.element.classList.add('hidden');
+                        card1.element.classList.remove('flipped');
+                        card2.element.classList.remove('flipped');
+                        card1.element.textContent = '';
+                        card2.element.textContent = '';
+                        
+                        selectedCards = [];
+                        canFlip = true;
+                    }, 1000);
+                }
+            }
+            
+            // Handle level completion
+            function levelComplete() {
+                const settings = levelSettings[currentLevel];
+                completionMessage.textContent = `You completed ${settings.name} level in ${seconds} seconds!`;
+                
+                // Show confetti celebration
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+                
+                // Show next level button if not on the last level
+                if (currentLevel < 3) {
+                    nextLevelBtn.style.display = 'inline-block';
+                }
+                
+                // Show lightbox
+                levelCompleteLightbox.style.display = 'flex';
+            }
+            
+            // Advance to next level
+            function nextLevel() {
+                if (currentLevel < 3) {
+                    currentLevel++;
+                    initGame();
+                }
+            }
+            
+            // Shuffle an array
+            function shuffleArray(array) {
+                const newArray = [...array];
+                for (let i = newArray.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+                }
+                return newArray;
+            }
+            
+            // Event listeners
+            startBtn.addEventListener('click', startGame);
+            resetBtn.addEventListener('click', initGame);
+            nextLevelBtn.addEventListener('click', nextLevel);
+            continueBtn.addEventListener('click', () => {
+                levelCompleteLightbox.style.display = 'none';
+                nextLevel();
+            });
+            restartBtn.addEventListener('click', () => {
+                levelCompleteLightbox.style.display = 'none';
+                initGame();
+            });
+            
+            // Initialize the game on page load
+            initGame();
+        });
+    </script>
+</body>
+</html>
